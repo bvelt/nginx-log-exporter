@@ -48,7 +48,7 @@ func NewCollector(cfg *config.AppConfig) *Collector {
 		sessionsBytesSent: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: cfg.Name,
 			Name:      "stream_sessions_bytes_sent",
-			Help:      "Bytes sent upstream during reverse proxy stream session",
+			Help:      "Bytes sent during reverse proxy stream session",
 		}, labels),
 
 		staticValues:    staticValues,
