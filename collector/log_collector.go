@@ -14,10 +14,9 @@ import (
 // Collector is a struct containing pointers to all metrics that should be
 // exposed to Prometheus
 type Collector struct {
-	countTotal      *prometheus.CounterVec
-	bytesTotal      *prometheus.CounterVec
-	upstreamSeconds *prometheus.HistogramVec
-	responseSeconds *prometheus.HistogramVec
+	sessionsSeconds       *prometheus.HistogramVec
+	sessionsBytesReceived *prometheus.HistogramVec
+	sessionsBytesSent     *prometheus.HistogramVec
 
 	staticValues    []string
 	dynamicLabels   []string
@@ -34,28 +33,22 @@ func NewCollector(cfg *config.AppConfig) *Collector {
 	labels := append(staticLabels, dynamicLabels...)
 
 	return &Collector{
-		countTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		sessionsSeconds: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: cfg.Name,
-			Name:      "http_response_count_total",
-			Help:      "Amount of processed HTTP requests",
+			Name:      "stream_sessions_seconds",
+			Help:      "Duration of reverse proxy stream session",
 		}, labels),
 
-		bytesTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		sessionsBytesReceived: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: cfg.Name,
-			Name:      "http_response_size_bytes",
-			Help:      "Total amount of transferred bytes",
+			Name:      "stream_sessions_bytes_received",
+			Help:      "Bytes received during reverse proxy stream session",
 		}, labels),
 
-		upstreamSeconds: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		sessionsBytesSent: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: cfg.Name,
-			Name:      "http_upstream_time_seconds",
-			Help:      "Time needed by upstream servers to handle requests",
-		}, labels),
-
-		responseSeconds: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: cfg.Name,
-			Name:      "http_response_time_seconds",
-			Help:      "Time needed by NGINX to handle requests",
+			Name:      "stream_sessions_bytes_sent",
+			Help:      "Bytes sent upstream during reverse proxy stream session",
 		}, labels),
 
 		staticValues:    staticValues,
@@ -71,10 +64,9 @@ func (c *Collector) Run() {
 	c.cfg.Prepare()
 
 	// register to prometheus
-	prometheus.MustRegister(c.countTotal)
-	prometheus.MustRegister(c.bytesTotal)
-	prometheus.MustRegister(c.upstreamSeconds)
-	prometheus.MustRegister(c.responseSeconds)
+	prometheus.MustRegister(c.sessionsSeconds)
+	prometheus.MustRegister(c.sessionsBytesReceived)
+	prometheus.MustRegister(c.sessionsBytesSent)
 
 	for _, f := range c.cfg.SourceFiles {
 		t, err := tail.TailFile(f, tail.Config{
@@ -105,18 +97,16 @@ func (c *Collector) Run() {
 
 				labelValues := append(c.staticValues, dynamicValues...)
 
-				c.countTotal.WithLabelValues(labelValues...).Inc()
-
-				if bytes, err := entry.FloatField("body_bytes_sent"); err == nil {
-					c.bytesTotal.WithLabelValues(labelValues...).Add(bytes)
+				if sessionTime, err := entry.FloatField("session_time"); err == nil {
+					c.sessionsSeconds.WithLabelValues(labelValues...).Observe(sessionTime)
 				}
 
-				if upstreamTime, err := entry.FloatField("upstream_response_time"); err == nil {
-					c.upstreamSeconds.WithLabelValues(labelValues...).Observe(upstreamTime)
+				if bytes, err := entry.FloatField("bytes_sent"); err == nil {
+					c.sessionsBytesSent.WithLabelValues(labelValues...).Observe(bytes)
 				}
 
-				if responseTime, err := entry.FloatField("request_time"); err == nil {
-					c.responseSeconds.WithLabelValues(labelValues...).Observe(responseTime)
+				if bytes, err := entry.FloatField("bytes_received"); err == nil {
+					c.sessionsBytesReceived.WithLabelValues(labelValues...).Observe(bytes)
 				}
 			}
 		}()
