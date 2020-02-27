@@ -1,7 +1,7 @@
-- name: app
+- name: mqtt
   format: $remote_addr [$time_local] $protocol $status $bytes_received $bytes_sent $session_time $upstream_addr
   source_files:
-    - ./test/nginx.log
+    - /var/log/nginx/mqtt_access.log
   static_config:
     app: appgateway
     stack: nonprod
