@@ -3,6 +3,10 @@ A Nginx log parser exporter for prometheus metrics.
 
 ![screen shot 2018-01-08 at 9 36 21 am](https://user-images.githubusercontent.com/1459834/34656613-7083cf3e-f457-11e7-929a-2758abad387b.png)
 
+## Docker
+
+1.  sudo systemctl start docker
+2. ./run.sh
 
 ## Installation
 
